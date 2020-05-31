@@ -12,11 +12,11 @@ envname = 'Continuous-CartPole-v0'
 env = gym.make(envname).env
 
 if envname == 'Continuous-CartPole-v0':
-	min_action = -2.0
-	max_action = 2.0
-elif envname == 'Pendulum-v0':
 	min_action = env.min_action
 	max_action = env.max_action
+elif envname == 'Pendulum-v0':
+	min_action = -2.0
+	max_action = 2.0
 n_actions = 5
 
 env = SnapshotEnv(gym.make(envname).env)

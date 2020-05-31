@@ -9,7 +9,8 @@ import random
 INF = 1e9
 
 def evaluate_single_point(x):
-	return -(x[0] - 0.3)**2  -(x[1] - 0.7)**2 + 1
+	# return -(x[0] + 0.5)**2  -(x[1] - 0.7)**2 + 1
+	return -(x[0] + 0.5)**2  + 1
 
 
 def flip(p):
@@ -228,11 +229,11 @@ class HOO(object):
 	CAPITAL: 'Time' mean time in seconds is used as cost unit, while 'Actual' means unit cost used in synthetic experiments
 	debug: If true then more messages are printed
 	'''
-	def __init__(self,dim, nu, rho):
+	def __init__(self,dim, nu, rho, min_value, max_value):
 		self.nu = nu
 		self.rho = rho
 		self.t = 0
-		cell = tuple([(0,1)]*dim)
+		cell = tuple([(min_value, max_value)] * dim)
 		height = 0
 		dimension = 0
 		# diam = nu * (rho**height)
@@ -315,10 +316,10 @@ class HOO(object):
 
 
 if __name__ == '__main__':
-	dim = 2
+	dim = 1
 	rho = 2**(-2 / dim)
 	nu = 4 * dim
 	HOO_iters = 1000
-	hoo = HOO(dim=dim, nu=nu, rho=rho)
+	hoo = HOO(dim=dim, nu=nu, rho=rho, min_value=-1.0, max_value=1.0)
 	hoo.run(HOO_iters)
 	print(hoo.get_point())
