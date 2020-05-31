@@ -9,16 +9,14 @@ import random
 INF = 1e9
 
 def evaluate_single_point(x):
-	# return -(x[0] + 0.5)**2  -(x[1] - 0.7)**2 + 1
-	return -(x[0] + 0.3)**2  + 1
+	return -(x[0] - 0.3)**2 + 1
 
 
 def flip(p):
 	return True if random.random() < p else False
 
 class HOO_node(object):
-	def __init__(self,cell,value,height,dimension,num):
-
+	def __init__(self,cell,value,upp_bound,height,dimension,num):
 		'''This is a node of the MFTREE
 		cell: tuple denoting the bounding boxes of the partition
 		m_value: mean value of the observations in the cell and its children
@@ -34,10 +32,11 @@ class HOO_node(object):
 		self.cell = cell
 		self.m_value = value
 		self.value = value
+		self.upp_bound = upp_bound
 		self.height = height
 		self.dimension = dimension
 		self.num = num
-		self.t_bound = 0
+		self.t_bound = upp_bound
 
 		self.left = None
 		self.right = None
@@ -68,7 +67,7 @@ def in_cell(node,parent):
 		return False
 
 
-class POLY_HOO_tree(object):
+class HOO_tree(object):
 	'''
 	MF_tree class that maintains the multi-fidelity tree
 	nu: nu parameter in the paper
@@ -77,28 +76,68 @@ class POLY_HOO_tree(object):
 	C: parameter for the bias function as defined in the paper
 	root: can initialize a root node, when this parameter is supplied by a MF_node object instance
 	'''
-	def __init__(self, nu, rho, alpha, xi, eta, root=None, lim_depth=10):
+	def __init__(self,nu,rho,root = None, lim_depth=10):
 		self.nu = nu
 		self.rho = rho
-		self.alpha = alpha
-		self.xi = xi
-		self.eta = eta 
 		self.root = root
 		self.lim_depth = lim_depth
 		self.mheight = 0
 		self.maxi = float(-INF)
 		self.current_best = root
-		self.last_leaf = None 
 	
 
-	def update_parents(self, node, val):
-		if node is None:
+	def insert_node(self,root,node):
+		'''
+		insert a node in the tree in the appropriate position
+		'''
+		if self.root is None:
+			node.height = 0
+			if self.mheight < node.height:
+				self.mheight = node.height
+			self.root = node
+			self.root.parent = None
+			return self.root
+		if root is None:
+			node.height = 0
+			if self.mheight < node.height:
+				self.mheight = node.height
+			root = node
+			root.parent = None
+			return root
+		if root.left is None and root.right is None:
+			node.height = root.height + 1
+			if self.mheight < node.height:
+				self.mheight = node.height
+			root.left = node
+			root.left.parent = root
+			return root.left
+		elif root.left is not None:
+			if in_cell(node,root.left):
+				return self.insert_node(root.left,node)
+			elif root.right is not None:
+				if in_cell(node,root.right):
+					return self.insert_node(root.right,node)
+			else:
+				node.height = root.height + 1
+				if self.mheight < node.height:
+					self.mheight = node.height
+				root.right = node
+				root.right.parent = root
+				return root.right
+	
+
+	def update_parents(self,node,val):
+		'''
+		update the upperbound and mean value of a parent node, once a new child is inserted in its child tree. This process proceeds recursively up the tree
+		'''
+		if node.parent is None:
 			return
 		else:
-			node.m_value = (node.num * node.m_value + val)/(1.0 + node.num)
-			node.num += 1.0
-			# node.upp_bound = node.m_value + 2 * ((self.rho)**(node.height)) * self.nu
-			self.update_parents(node.parent,val)
+			parent = node.parent
+			parent.m_value = (parent.num*parent.m_value + val)/(1.0 + parent.num)
+			parent.num = parent.num + 1.0
+			parent.upp_bound = parent.m_value + 2*((self.rho)**(parent.height))*self.nu
+			self.update_parents(parent,val)
 
 
 	def update_tbounds(self,root,t):
@@ -107,10 +146,9 @@ class POLY_HOO_tree(object):
 		'''
 		if root is None:
 			return
-		self.update_tbounds(root.left, t)
-		self.update_tbounds(root.right, t)
-		# root.t_bound = root.m_value + 2 * ((self.rho)**(root.height)) * self.nu + np.sqrt(2 * np.log(t) / root.num)
-		root.t_bound = root.m_value + 2 * ((self.rho)**(root.height)) * self.nu + t**(self.alpha / self.xi) * root.num**(self.eta - 1.0)
+		self.update_tbounds(root.left,t)
+		self.update_tbounds(root.right,t)
+		root.t_bound = root.upp_bound + np.sqrt(2 * np.log(t)/root.num)
 		maxi = None
 		if root.left:
 			maxi = root.left.t_bound
@@ -128,7 +166,7 @@ class POLY_HOO_tree(object):
 		if root is None:
 			return
 		if root.height == height:
-			print (root.cell, root.num, root.t_bound),
+			print (root.cell, root.num,root.upp_bound,root.t_bound),
 		elif root.height < height:
 			if root.left:
 				self.print_given_height(root.left,height)
@@ -172,17 +210,12 @@ class POLY_HOO_tree(object):
 		'''
 		if root is None:
 			print('Could not find next node. Check Tree.')
-		
 		if root.left is None and root.right is None:
-			bit = flip(0.5)
-			if bit:
-				return root, 0 
-			else:
-				return root, 1 
+			return root
 		if root.left is None:
-			return root, 0
+			return self.get_next_node(root.right)
 		if root.right is None:
-			return root, 1 
+			return self.get_next_node(root.left)
 
 		if root.left.t_bound > root.right.t_bound:
 			return self.get_next_node(root.left)
@@ -203,7 +236,7 @@ class POLY_HOO_tree(object):
 		if root is None:
 			return
 		if root.right is None and root.left is None:
-			val = root.m_value - self.nu * ((self.rho)**(root.height))
+			val = root.m_value - self.nu*((self.rho)**(root.height))
 			if self.maxi < val:
 				self.maxi = val 
 				cell = list(root.cell) 
@@ -218,7 +251,7 @@ class POLY_HOO_tree(object):
 
 
 
-class POLY_HOO(object):
+class HOO(object):
 	'''
 	MFHOO algorithm, given a fixed nu and rho
 	mfobject: multi-fidelity noisy function object
@@ -233,93 +266,85 @@ class POLY_HOO(object):
 	CAPITAL: 'Time' mean time in seconds is used as cost unit, while 'Actual' means unit cost used in synthetic experiments
 	debug: If true then more messages are printed
 	'''
-	def __init__(self,dim, nu, rho, min_value, max_value, lim_depth, alpha, xi, eta):
+	def __init__(self,dim, nu, rho, lim_depth):
 		self.nu = nu
 		self.rho = rho
-		self.alpha = alpha
-		self.xi = xi
-		self.eta = eta
 		self.t = 0
 		self.lim_depth = lim_depth
-		cell = tuple([(min_value, max_value)] * dim)
+		cell = tuple([(0,1)]*dim)
 		height = 0
 		dimension = 0
-		# diam = nu * (rho**height)
-		# bhi = 2 * diam
-		root = HOO_node(cell, 0, height, dimension, 0)
-		self.Tree = POLY_HOO_tree(nu, rho, alpha, xi, eta, root, lim_depth)
-		self.Tree.root.t_bound = INF
+		root = self.querie(cell,height, self.rho, self.nu, dimension)
+		self.t = self.t + 1
+		self.Tree = HOO_tree(nu,rho,root,lim_depth)
+		self.Tree.update_tbounds(self.Tree.root,self.t)
+
+
+
 
 
 	def get_value(self,cell):
 		'''cell: tuple'''
 		x = np.array([(s[0]+s[1])/2.0 for s in list(cell)])
-		return x #, evaluate_single_point(x)
+		return evaluate_single_point(x)
 
 
-	def querie(self, cell, height, rho, nu,dimension):
-		# diam = nu * (rho**height)
-		action = self.get_value(cell)
+	def querie(self,cell,height, rho, nu,dimension):
+		diam = nu*(rho**height)
+		value = self.get_value(cell)
 	
-		# bhi = 2*diam
-		current_object = HOO_node(cell, 0, height, dimension, 0)
-		return action, current_object
+		bhi = 2*diam + value
+		current_object = HOO_node(cell,value,bhi,height,dimension,1)
+		return current_object
 
 
-	def split_children(self, parent, rho, nu, child_id):
-		pcell = list(parent.cell)
+	def split_children(self,current,rho,nu):
+		pcell = list(current.cell)
 		span = [abs(pcell[i][1] - pcell[i][0]) for i in range(len(pcell))]
 
 		dimension = np.argmax(span)
 		dd = len(pcell)
-		if dimension == parent.dimension:
-			dimension = (parent.dimension - 1)%dd
-		h = parent.height + 1
+		if dimension == current.dimension:
+			dimension = (current.dimension - 1)%dd
+		h = current.height + 1
 		l = np.linspace(pcell[dimension][0],pcell[dimension][1],3)
-		
-		cell = []
-		for j in range(len(pcell)):
-			if j != dimension:
-				cell = cell + [pcell[j]]
-			else:
-				cell = cell + [(l[child_id],l[child_id + 1])]
-		cell = tuple(cell)
-		action, child = self.querie(cell, h, rho, nu,dimension)
+		children = []
+		for i in range(len(l)-1):
+			cell = []
+			for j in range(len(pcell)):
+				if j != dimension:
+					cell = cell + [pcell[j]]
+				else:
+					cell = cell + [(l[i],l[i+1])]
+			cell = tuple(cell)
+			child = self.querie(cell, h, rho, nu,dimension)
+			children = children + [child]
 
-		return action, child
+		return children
 
 
-	def select_action(self):
-		parent, child_id = self.Tree.get_next_node(self.Tree.root)
-		if parent.height >= self.lim_depth:
-			action = self.get_value(parent.cell)
-			self.Tree.last_leaf = parent
-			return action
-		action, current = self.split_children(parent, self.rho, self.nu, child_id)
-		if child_id == 0:
-			parent.left = current
-			parent.left.parent = parent 
-			self.Tree.last_leaf = parent.left
+	def take_HOO_step(self):
+		current = self.Tree.get_next_node(self.Tree.root)
+		self.t = self.t + 2
+		if current.height >= self.lim_depth:
+			value = self.get_value(current.cell)
+			current.m_value = (current.num * current.m_value + value)/(1.0 + current.num)
+			current.num = current.num + 1.0
+			current.upp_bound = current.m_value + 2*((self.rho)**(current.height))*self.nu
+			self.Tree.update_parents(current, value)
 		else:
-			parent.right = current
-			parent.right.parent = parent 
-			self.Tree.last_leaf = parent.right
-
-		return action 
-
-
-
-	def update(self, value):
-		self.t = self.t + 1
-		self.Tree.update_parents(self.Tree.last_leaf, value)
-		self.Tree.update_tbounds(self.Tree.root, self.t)
+			children = self.split_children(current,self.rho,self.nu)
+			rnode = self.Tree.insert_node(self.Tree.root,children[0])
+			self.Tree.update_parents(rnode,rnode.value)
+			rnode = self.Tree.insert_node(self.Tree.root,children[1])
+			self.Tree.update_parents(rnode,rnode.value)
+		
+		self.Tree.update_tbounds(self.Tree.root,self.t)
 
 
 	def run(self, iters):
 		for _ in range(iters):
-			action = self.select_action()
-			value = evaluate_single_point(action)
-			self.update(value)
+			self.take_HOO_step()
 
 
 	def get_point(self):
@@ -331,11 +356,8 @@ if __name__ == '__main__':
 	dim = 1
 	rho = 2**(-2 / dim)
 	nu = 4 * dim
-	HOO_iters = 1000
+	HOO_iters = 100
 	lim_depth = 10
-	alpha = 5
-	xi = 10
-	eta = 0.5
-	poly_hoo = POLY_HOO(dim=dim, nu=nu, rho=rho, min_value=-1.0, max_value=1.0, lim_depth=lim_depth, alpha=alpha, xi=xi, eta=eta)
-	poly_hoo.run(HOO_iters)
-	print(poly_hoo.get_point())
+	hoo = HOO(dim=dim, nu=nu, rho=rho, lim_depth=lim_depth)
+	hoo.run(HOO_iters)
+	print(hoo.get_point())
