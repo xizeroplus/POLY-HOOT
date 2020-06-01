@@ -8,26 +8,41 @@ from itertools import count
 import random
 
 # envname = 'Continuous-CartPole-v0'
+# envname = 'LunarLanderContinuous-v2'
 envname = 'Pendulum-v0'
+
 env = gym.make(envname).env
 
-filename = 'UCT.txt'
+filename = 'UCT' + envname + '.txt'
 
 MAX_MCTS_DEPTH = 50
 ITERATIONS = 100
 TEST_ITERATIONS = 150
+n_actions = 15
+dim = 1
 
 if envname == 'Continuous-CartPole-v0':
 	min_action = env.min_action
 	max_action = env.max_action
+	discretized_actions = [min_action + i * (max_action - min_action) / (n_actions - 1) for i in range(n_actions)]
 elif envname == 'Pendulum-v0':
 	min_action = -2.0
 	max_action = 2.0
-n_actions = 15
+	discretized_actions = [min_action + i * (max_action - min_action) / (n_actions - 1) for i in range(n_actions)]
+elif envname == 'LunarLanderContinuous-v2':
+	dim = 2
+	min_action = -1.0
+	max_action = 1.0
+	MAX_MCTS_DEPTH = 100
+	k = int(np.sqrt(n_actions))
+	arr = np.linspace(min_action, max_action, k + 1)
+	discretized_actions = []
+	for x in arr:
+		for y in arr:
+			discretized_actions.append([x, y])
+	n_actions = len(discretized_actions)
 
 env = SnapshotEnv(gym.make(envname).env)
-
-discretized_actions = [min_action + i * (max_action - min_action) / (n_actions - 1) for i in range(n_actions)]
 
 SCALE_UCB = 1
 MAX_VALUE = 1e100
@@ -79,7 +94,10 @@ class Node:
 		# if self.times_visited == 0:
 		# 	return self
 		for j in range(n_actions):
-			self.children.add(Node(self, [discretized_actions[j]]))
+			if dim == 1:
+				self.children.add(Node(self, [discretized_actions[j]]))
+			else:
+				self.children.add(Node(self, discretized_actions[j]))
 		assert not self.is_done, "the episode is finished! can't expand"
 
 		return self.selection()
@@ -91,7 +109,10 @@ class Node:
 		env.load_snapshot(self.snapshot)
 		total_reward_rollout = 0
 		for _ in range(t_max):
-			action = np.array([random.choice(discretized_actions)])
+			if dim == 1:
+				action = np.array([random.choice(discretized_actions)])
+			else:
+				action = np.array(discretized_actions[np.random.randint(0, n_actions)])
 			# action = env.action_space.sample()
 			next_s, r, done, _ = env.step(action)
 			total_reward_rollout += r
@@ -163,7 +184,7 @@ def plan_mcts(root, n_iter):
 
 
 if __name__ == '__main__':
-	for test in range(10):
+		env = gym.make(envname).env
 		env = SnapshotEnv(gym.make(envname).env)
 		root_obs = env.reset()
 		root_snapshot = env.get_snapshot()
@@ -182,8 +203,7 @@ if __name__ == '__main__':
 
 			s, r, done, _ = test_env.step(best_child.action)
 			
-			test_env.render()
-			assert (best_child.obs == s).all()
+			# test_env.render()
 			total_reward += r * current_discount
 			current_discount *= discount
 			print(total_reward)

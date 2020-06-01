@@ -13,14 +13,16 @@ import random
 
 
 # envname = 'Continuous-CartPole-v0'
-envname = 'Pendulum-v0'
+# envname = 'Pendulum-v0'
+envname = 'LunarLanderContinuous-v2'
+
 filename = 'POLY_HOOT_' + envname + '.txt'
 env = gym.make(envname).env
 KEY_DECIMAL = 4
 MAX_MCTS_DEPTH = 50
 ITERATIONS = 100
 TEST_ITERATIONS = 150
-HOO_LIMIT_DEPTH = 4
+HOO_LIMIT_DEPTH = 10
 discount = 0.99
 INF = 1e9
 alphas = [0.0 for _ in range(MAX_MCTS_DEPTH + 1)]
@@ -52,6 +54,10 @@ elif envname == 'Pendulum-v0':
 	min_action = -2.0
 	max_action = 2.0
 	dim = 1
+elif envname == 'LunarLanderContinuous-v2':
+	min_action = -1.0
+	max_action = 1.0
+	dim = 2
 
 env = SnapshotEnv(gym.make(envname).env)
 
@@ -175,6 +181,7 @@ def plan_mcts(root, n_iter):
 
 if __name__ == '__main__':
 	for test in range(10):
+		env = gym.make(envname).env
 		env = SnapshotEnv(gym.make(envname).env)
 		root_obs = env.reset()
 		root_snapshot = env.get_snapshot()

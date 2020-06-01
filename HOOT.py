@@ -14,6 +14,7 @@ import random
 
 # envname = 'Continuous-CartPole-v0'
 envname = 'Pendulum-v0'
+# envname = 'LunarLanderContinuous-v2'
 env = gym.make(envname).env
 KEY_DECIMAL = 4
 MAX_MCTS_DEPTH = 50
@@ -21,7 +22,7 @@ ITERATIONS = 100
 TEST_ITERATIONS = 150
 discount = 0.99
 INF = 1e9
-filename = 'HOOT.txt'
+filename = 'HOOT' + envname + '.txt'
 
 if envname == 'Continuous-CartPole-v0':
 	min_action = env.min_action
@@ -31,6 +32,10 @@ elif envname == 'Pendulum-v0':
 	min_action = -2.0
 	max_action = 2.0
 	dim = 1
+elif envname == 'LunarLanderContinuous-v2':
+	min_action = -1.0
+	max_action = 1.0
+	dim = 2
 
 env = SnapshotEnv(gym.make(envname).env)
 
@@ -153,6 +158,8 @@ def plan_mcts(root, n_iter):
 
 if __name__ == '__main__':
 	for test in range(10):
+		
+		env = gym.make(envname).env
 		env = SnapshotEnv(gym.make(envname).env)
 		root_obs = env.reset()
 		root_snapshot = env.get_snapshot()
@@ -189,7 +196,7 @@ if __name__ == '__main__':
 			# delete other actions
 
 			root = root.children[tuple(best_action)]
-			
+
 			# best_child = root.children[tuple(best_action)]
 			# root = Node(best_child.snapshot, best_child.obs, best_child.is_done, None, dim)
 			plan_mcts(root, n_iter=ITERATIONS)
