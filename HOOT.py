@@ -12,15 +12,16 @@ import random
 
 
 
-envname = 'Continuous-CartPole-v0'
-# envname = 'Pendulum-v0'
+# envname = 'Continuous-CartPole-v0'
+envname = 'Pendulum-v0'
 env = gym.make(envname).env
 KEY_DECIMAL = 4
-MAX_MCTS_DEPTH = 100
-ITERATIONS = 200
-TEST_ITERATIONS = 500
+MAX_MCTS_DEPTH = 50
+ITERATIONS = 100
+TEST_ITERATIONS = 150
 discount = 0.99
 INF = 1e9
+filename = 'HOOT.txt'
 
 if envname == 'Continuous-CartPole-v0':
 	min_action = env.min_action
@@ -151,43 +152,54 @@ def plan_mcts(root, n_iter):
 
 
 if __name__ == '__main__':
-	env = SnapshotEnv(gym.make(envname).env)
-	root_obs = env.reset()
-	root_snapshot = env.get_snapshot()
-	root = Node(root_snapshot, root_obs, False, None, dim)
-	current_discount = 1.0
+	for test in range(10):
+		env = SnapshotEnv(gym.make(envname).env)
+		root_obs = env.reset()
+		root_snapshot = env.get_snapshot()
+		root = Node(root_snapshot, root_obs, False, None, dim)
+		current_discount = 1.0
 
-	plan_mcts(root, n_iter=ITERATIONS)
-
-	test_env = pickle.loads(root_snapshot) # env used to show progress
-	total_reward = 0
-	for i in range(TEST_ITERATIONS):
-
-		print(i)
-		raw_best_action = root.hoo.get_point().tolist()
-		best_action = np.array([round(a, KEY_DECIMAL) for a in raw_best_action])
-		# if len(best_action) == 1:
-		# 	best_action = best_action[0]
-
-		s, r, done, _ = test_env.step(best_action)
-		
-		test_env.render()
-		
-		total_reward += r * current_discount
-		current_discount *= discount
-		print(total_reward)
-		if done:
-			print(f"finished with reward: {total_reward}")
-			test_env.close()
-			break
-		
-		# delete other actions
-
-		root = root.children[tuple(best_action)]
 		plan_mcts(root, n_iter=ITERATIONS)
-	
-	test_env.close()
-	print(total_reward)
+
+		test_env = pickle.loads(root_snapshot) # env used to show progress
+		total_reward = 0
+		for i in range(TEST_ITERATIONS):
+
+			print(i)
+			raw_best_action = root.hoo.get_point().tolist()
+			best_action = np.array([round(a, KEY_DECIMAL) for a in raw_best_action])
+			# if len(best_action) == 1:
+			# 	best_action = best_action[0]
+
+			s, r, done, _ = test_env.step(best_action)
+			
+			# test_env.render()
+			
+			total_reward += r * current_discount
+			current_discount *= discount
+			print(total_reward)
+			if done:
+				file = open(filename, 'a')
+				file.write(str(total_reward) + '\n')
+				file.close()
+				print(f"finished with reward: {total_reward}")
+				test_env.close()
+				break
+			
+			# delete other actions
+
+			root = root.children[tuple(best_action)]
+			
+			# best_child = root.children[tuple(best_action)]
+			# root = Node(best_child.snapshot, best_child.obs, best_child.is_done, None, dim)
+			plan_mcts(root, n_iter=ITERATIONS)
+		
+		test_env.close()
+		
+		file = open(filename, 'a')
+		file.write(str(total_reward) + '\n')
+		file.close()
+		print(total_reward)
 
 
 

@@ -7,9 +7,15 @@ import numpy as np
 from itertools import count
 import random
 
-envname = 'Continuous-CartPole-v0'
-# envname = 'Pendulum-v0'
+# envname = 'Continuous-CartPole-v0'
+envname = 'Pendulum-v0'
 env = gym.make(envname).env
+
+filename = 'UCT.txt'
+
+MAX_MCTS_DEPTH = 50
+ITERATIONS = 100
+TEST_ITERATIONS = 150
 
 if envname == 'Continuous-CartPole-v0':
 	min_action = env.min_action
@@ -17,13 +23,13 @@ if envname == 'Continuous-CartPole-v0':
 elif envname == 'Pendulum-v0':
 	min_action = -2.0
 	max_action = 2.0
-n_actions = 5
+n_actions = 15
 
 env = SnapshotEnv(gym.make(envname).env)
 
 discretized_actions = [min_action + i * (max_action - min_action) / (n_actions - 1) for i in range(n_actions)]
 
-SCALE_UCB = 10
+SCALE_UCB = 1
 MAX_VALUE = 1e100
 discount = 0.99
 
@@ -79,7 +85,7 @@ class Node:
 		return self.selection()
 
 
-	def rollout(self, t_max=500):
+	def rollout(self, t_max=MAX_MCTS_DEPTH):
 		if self.is_done:
 			return 0.
 		env.load_snapshot(self.snapshot)
@@ -157,47 +163,54 @@ def plan_mcts(root, n_iter):
 
 
 if __name__ == '__main__':
-	env = SnapshotEnv(gym.make(envname).env)
-	root_obs = env.reset()
-	root_snapshot = env.get_snapshot()
-	root = Root(root_snapshot, root_obs)
-	current_discount = 1.0
+	for test in range(10):
+		env = SnapshotEnv(gym.make(envname).env)
+		root_obs = env.reset()
+		root_snapshot = env.get_snapshot()
+		root = Root(root_snapshot, root_obs)
+		current_discount = 1.0
 
-	plan_mcts(root, n_iter=100)
+		plan_mcts(root, n_iter=ITERATIONS)
 
-	test_env = pickle.loads(root_snapshot) # env used to show progress
-	total_reward = 0
-	for i in range(100):
+		test_env = pickle.loads(root_snapshot) # env used to show progress
+		total_reward = 0
+		for i in range(TEST_ITERATIONS):
 
-		print(i)
-		children = list(root.children)
-		best_child = children[np.argmax([child.get_mean_value() for child in children])]
+			print(i)
+			children = list(root.children)
+			best_child = children[np.argmax([child.get_mean_value() for child in children])]
 
-		s, r, done, _ = test_env.step(best_child.action)
-		
-		test_env.render()
-		assert (best_child.obs == s).all()
-		total_reward += r * current_discount
-		current_discount *= discount
+			s, r, done, _ = test_env.step(best_child.action)
+			
+			test_env.render()
+			assert (best_child.obs == s).all()
+			total_reward += r * current_discount
+			current_discount *= discount
+			print(total_reward)
+			if done:
+				file = open(filename, 'a')
+				file.write(str(total_reward) + '\n')
+				file.close()
+				print(f"finished with reward: {total_reward}")
+				test_env.close()
+				break
+			# no need for the other part of the tree because the role of
+			# root will be transmited to the best_child
+			for child in children:
+				if child != best_child:
+					child.safe_delete()
+
+			root = Root.to_root(best_child)
+			# if root.is_leaf():
+			plan_mcts(root, n_iter=ITERATIONS)
+
+			# best_leaf = root.expand()
+			# child_value = root.rollout()
+			# root.back_propagate(child_value)
+		file = open(filename, 'a')
+		file.write(str(total_reward) + '\n')
+		file.close()
 		print(total_reward)
-		if done:
-			print(f"finished with reward: {total_reward}")
-			test_env.close()
-			break
-		# no need for the other part of the tree because the role of
-		# root will be transmited to the best_child
-		for child in children:
-			if child != best_child:
-				child.safe_delete()
-
-		root = Root.to_root(best_child)
-		# if root.is_leaf():
-		plan_mcts(root, n_iter=100)
-
-		# best_leaf = root.expand()
-		# child_value = root.rollout()
-		# root.back_propagate(child_value)
-	print(total_reward)
 
 
 

@@ -110,7 +110,7 @@ class POLY_HOO_tree(object):
 		self.update_tbounds(root.left, t)
 		self.update_tbounds(root.right, t)
 		# root.t_bound = root.m_value + 2 * ((self.rho)**(root.height)) * self.nu + np.sqrt(2 * np.log(t) / root.num)
-		root.t_bound = root.m_value + 2 * ((self.rho)**(root.height)) * self.nu + t**(self.alpha / self.xi) * root.num**(self.eta - 1.0)
+		root.t_bound = root.m_value + 2 * ((self.rho)**(root.height)) * self.nu + 0.2 * t**(self.alpha / self.xi) * root.num**(self.eta - 1.0)
 		maxi = None
 		if root.left:
 			maxi = root.left.t_bound
