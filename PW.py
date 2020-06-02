@@ -1,5 +1,6 @@
 from math import log, sqrt
 import gym
+import math
 from SnapshotENV import SnapshotEnv
 import pickle
 import os
@@ -7,53 +8,54 @@ import numpy as np
 from itertools import count
 import random
 
-# envname = 'Continuous-CartPole-v0'
-# envname = 'Acrobot-v1'
-envname = 'LunarLanderContinuous-v2'
+envname = 'Continuous-CartPole-v0'
 # envname = 'Pendulum-v0'
+# envname = 'LunarLanderContinuous-v2'
 
 env = gym.make(envname).env
 
-filename = 'UCT' + envname + '.txt'
+filename = 'PW' + envname + '.txt'
 
-MAX_MCTS_DEPTH = 50
-ITERATIONS = 100
+MAX_MCTS_DEPTH = 25
+ITERATIONS = 500
 TEST_ITERATIONS = 150
-n_actions = 10
+n_actions = 1
 dim = 1
+alpha = 0.5
 
 if envname == 'Continuous-CartPole-v0':
 	min_action = env.min_action
 	max_action = env.max_action
-	discretized_actions = [min_action + i * (max_action - min_action) / (n_actions - 1) for i in range(n_actions)]
+	discretized_actions = [np.random.uniform(min_action, max_action)]
 elif envname == 'Pendulum-v0':
 	min_action = -2.0
 	max_action = 2.0
-	discretized_actions = [min_action + i * (max_action - min_action) / (n_actions - 1) for i in range(n_actions)]
+	discretized_actions = [np.random.uniform(min_action, max_action)]
 elif envname == 'LunarLanderContinuous-v2':
 	dim = 2
 	min_action = -1.0
 	max_action = 1.0
 	MAX_MCTS_DEPTH = 100
-	k = int(np.sqrt(n_actions))
-	arr = np.linspace(min_action, max_action, k + 1)
-	discretized_actions = []
-	for x in arr:
-		for y in arr:
-			discretized_actions.append([x, y])
-	n_actions = len(discretized_actions)
+	discretized_actions = [[np.random.uniform(min_action, max_action), np.random.uniform(min_action, max_action)]]
 
 env = SnapshotEnv(gym.make(envname).env)
 
-SCALE_UCB = 10
+SCALE_UCB = 1
 MAX_VALUE = 1e100
 discount = 0.99
 
+def new_action():
+	if dim == 1:
+		return np.random.uniform(min_action, max_action)
+	elif dim == 2:
+		return [np.random.uniform(min_action, max_action), np.random.uniform(min_action, max_action)]
+
+
 class Node:
 	parent = None
-	value_sum = 0
 	times_visited = 0
-
+	value_sum = 0
+	
 	def __init__(self, parent, action):
 		self.parent = parent
 		self.action = action
@@ -86,6 +88,13 @@ class Node:
 	def selection(self):
 		if self.is_leaf():
 			return self
+		if math.floor((self.times_visited + 1)**alpha) > math.floor((self.times_visited)**alpha):
+			if dim == 1:
+				child = Node(self, [new_action()])
+			else:
+				child = Node(self, new_action())
+			self.children.add(child)
+			return child
 		children = list(self.children)
 		best_leaf = children[np.argmax([child.ucb_score() for child in children])]
 		return best_leaf.selection()
@@ -94,12 +103,16 @@ class Node:
 	def expand(self):
 		# if self.times_visited == 0:
 		# 	return self
-		for j in range(n_actions):
-			if dim == 1:
-				self.children.add(Node(self, [discretized_actions[j]]))
-			else:
-				self.children.add(Node(self, discretized_actions[j]))
-		assert not self.is_done, "the episode is finished! can't expand"
+		# for j in range(self.n_actions):
+		# 	if dim == 1:
+		# 		self.children.add(Node(self, [discretized_actions[j]]))
+		# 	else:
+		# 		self.children.add(Node(self, discretized_actions[j]))
+		# assert not self.is_done, "the episode is finished! can't expand"
+		if dim == 1:
+			self.children.add(Node(self, [new_action()]))
+		else:
+			self.children.add(Node(self, new_action()))
 
 		return self.selection()
 
@@ -111,9 +124,11 @@ class Node:
 		total_reward_rollout = 0
 		for _ in range(t_max):
 			if dim == 1:
-				action = np.array([random.choice(discretized_actions)])
-			else:
-				action = np.array(discretized_actions[np.random.randint(0, n_actions)])
+				action = env.action_space.sample()
+				# action = np.array([random.choice(discretized_actions)])
+			else:			
+				action = env.action_space.sample()
+				# action = np.array(discretized_actions[np.random.randint(0, n_actions)])
 			# action = env.action_space.sample()
 			next_s, r, done, _ = env.step(action)
 			total_reward_rollout += r
@@ -205,7 +220,7 @@ if __name__ == '__main__':
 
 			s, r, done, _ = test_env.step(best_child.action)
 			
-			test_env.render()
+			# test_env.render()
 			total_reward += r * current_discount
 			current_discount *= discount
 			print(total_reward)
@@ -235,6 +250,7 @@ if __name__ == '__main__':
 			file.close()
 			print(total_reward)
 			test_env.close()
+
 
 
 

@@ -20,7 +20,9 @@ filename = 'POLY_HOOT_' + envname + '.txt'
 env = gym.make(envname).env
 KEY_DECIMAL = 4
 MAX_MCTS_DEPTH = 50
-ITERATIONS = 100
+if envname == 'LunarLanderContinuous-v2':
+	MAX_MCTS_DEPTH = 100
+ITERATIONS = 200
 TEST_ITERATIONS = 150
 HOO_LIMIT_DEPTH = 10
 discount = 0.99
@@ -34,7 +36,7 @@ etas[MAX_MCTS_DEPTH] = 0.5
 alphas[MAX_MCTS_DEPTH] = (1 - etas[MAX_MCTS_DEPTH]) * etas[MAX_MCTS_DEPTH] * xis[MAX_MCTS_DEPTH]
 dprime = 0
 
-# for i in range(MAX_MCTS_DEPTH - 1, -1, -1):
+# for i in range(MAX_MCTS_DEPTH - 1, -1, -1):e
 # 	xis[i] = (alphas[i + 1] - 3) / 2
 # 	etas[i] = (etas[i + 1] * (1 - etas[i + 1]) + dprime * (1 - etas[i + 1]) + 1.0) / ((1 - etas[i + 1]) + dprime * (1 - etas[i + 1]) + 1.0)
 # 	alphas[i] = (1 - etas[i]) * etas[i] * xis[i]
@@ -55,6 +57,7 @@ elif envname == 'Pendulum-v0':
 	max_action = 2.0
 	dim = 1
 elif envname == 'LunarLanderContinuous-v2':
+	MAX_MCTS_DEPTH = 100
 	min_action = -1.0
 	max_action = 1.0
 	dim = 2
@@ -223,10 +226,11 @@ if __name__ == '__main__':
 			# root = Node(best_child.snapshot, best_child.obs, best_child.is_done, None, 0, dim)
 			plan_mcts(root, n_iter=ITERATIONS)
 		
-		print(total_reward)
-		file = open(filename, 'a')
-		file.write(str(total_reward) + '\n')
-		file.close()
-		test_env.close()
+		if not done:
+			print(total_reward)
+			file = open(filename, 'a')
+			file.write(str(total_reward) + '\n')
+			file.close()
+			test_env.close()
 
 

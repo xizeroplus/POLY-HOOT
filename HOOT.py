@@ -13,12 +13,12 @@ import random
 
 
 # envname = 'Continuous-CartPole-v0'
-envname = 'Pendulum-v0'
-# envname = 'LunarLanderContinuous-v2'
+# envname = 'Pendulum-v0'
+envname = 'LunarLanderContinuous-v2'
 env = gym.make(envname).env
 KEY_DECIMAL = 4
 MAX_MCTS_DEPTH = 50
-ITERATIONS = 100
+ITERATIONS = 200
 TEST_ITERATIONS = 150
 discount = 0.99
 INF = 1e9
@@ -33,6 +33,7 @@ elif envname == 'Pendulum-v0':
 	max_action = 2.0
 	dim = 1
 elif envname == 'LunarLanderContinuous-v2':
+	MAX_MCTS_DEPTH = 100
 	min_action = -1.0
 	max_action = 1.0
 	dim = 2
@@ -200,13 +201,13 @@ if __name__ == '__main__':
 			# best_child = root.children[tuple(best_action)]
 			# root = Node(best_child.snapshot, best_child.obs, best_child.is_done, None, dim)
 			plan_mcts(root, n_iter=ITERATIONS)
-		
-		test_env.close()
-		
-		file = open(filename, 'a')
-		file.write(str(total_reward) + '\n')
-		file.close()
-		print(total_reward)
+		if not done: 
+			test_env.close()
+			
+			file = open(filename, 'a')
+			file.write(str(total_reward) + '\n')
+			file.close()
+			print(total_reward)
 
 
 
