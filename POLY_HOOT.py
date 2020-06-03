@@ -183,7 +183,7 @@ def plan_mcts(root, n_iter):
 
 
 if __name__ == '__main__':
-	for test in range(10):
+	for test in range(5):
 		env = gym.make(envname).env
 		env = SnapshotEnv(gym.make(envname).env)
 		root_obs = env.reset()
@@ -205,7 +205,7 @@ if __name__ == '__main__':
 
 			s, r, done, _ = test_env.step(best_action)
 			
-			test_env.render()
+			# test_env.render()
 			
 			total_reward += r * current_discount
 			current_discount *= discount
