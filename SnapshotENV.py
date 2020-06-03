@@ -51,17 +51,3 @@ class SnapshotEnv(Wrapper):
 			next_state=next_s, reward=r, is_done=is_done, info=info)
 
 		return res
-
-"""
-Testing
-
-if __name__ == '__main__':
-	import gym
-	env = SnapshotEnv(gym.make('CartPole-v0'))
-	print(env.reset())
-	print(env.action_space.n)
-	snap = env.get_snapshot()
-	res = env.get_result(snap, 0)
-	print(res)
-
-"""
