@@ -4,6 +4,7 @@ from SnapshotENV import SnapshotEnv
 import pickle
 import os
 import numpy as np
+import copy
 from hoo import HOO
 import random
 
@@ -80,12 +81,18 @@ class Node:
 
 
 
+env = gym.make(envname).env
+env = SnapshotEnv(gym.make(envname).env)
+root_obs_ori = env.reset()
+root_snapshot_ori = env.get_snapshot()
+
+base = 333.3333 ** (1.0 / 15.0)
+samples = [int(3* (base ** i)) for i in range(16)]
+
 if __name__ == '__main__':
-	for test in range(5):
-		env = gym.make(envname).env
-		env = SnapshotEnv(gym.make(envname).env)
-		root_obs = env.reset()
-		root_snapshot = env.get_snapshot()
+	for ITERATIONS in samples[0:-5]:
+		root_obs = copy.copy(root_obs_ori)
+		root_snapshot = copy.copy(root_snapshot_ori)
 		root = Node(root_snapshot, root_obs, False, None, dim)
 		current_discount = 1.0
 
@@ -100,15 +107,15 @@ if __name__ == '__main__':
 
 			state, reward, done, _ = test_env.step(best_action)
 			
-			test_env.render()
+			# test_env.render()
 			
 			total_reward += reward * current_discount
 			current_discount *= discount
 			print(i, total_reward)
 			if done:
-				# file = open(filename, 'a')
-				# file.write(str(total_reward) + '\n')
-				# file.close()
+				file = open('ori-' + filename, 'a')
+				file.write(str(ITERATIONS) + '\t' + str(total_reward) + '\n')
+				file.close()
 				print('ended with reward: ', total_reward)
 				test_env.close()
 				break
@@ -125,9 +132,9 @@ if __name__ == '__main__':
 		if not done: 
 			test_env.close()
 			
-			# file = open(filename, 'a')
-			# file.write(str(total_reward) + '\n')
-			# file.close()
+			file = open('ori-' + filename, 'a')
+			file.write(str(ITERATIONS) + '\t' + str(total_reward) + '\n')
+			file.close()
 			print(total_reward)
 
 
