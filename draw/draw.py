@@ -3,7 +3,9 @@ import _tkinter
 from matplotlib import pyplot as plt
 import numpy as np
 
-task_name = 'Continuous-CartPole-IG-v0.txt'
+task_name = 'Continuous-CartPole-v0.txt'
+# task_name = 'Continuous-CartPole-IG-v0.txt'
+# alg_names = ['discretized-UCT', 'HOOT', 'POLY-HOOT']
 alg_names = ['discretized-UCT', 'PUCT', 'HOOT', 'POLY-HOOT']
 colors = ['#ff7f00', '#f781bf', '#4daf4a',
                   '#377eb8', '#a65628', '#984ea3',
